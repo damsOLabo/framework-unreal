@@ -1,0 +1,8 @@
+{
+    "python.autoComplete.extraPaths": [
+        "\\Users\\damienvie\\Documents\\development\\thirdParty\\unreal\\5.1\\"
+    ],
+    "python.analysis.extraPaths": [
+        "\\Users\\damienvie\\Documents\\development\\thirdParty\\unreal\\5.1\\"
+    ]
+}
