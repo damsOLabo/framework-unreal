@@ -1,51 +1,64 @@
+from typing import Dict
 import unreal
 
-from . import asset
+from . import asset, levelSequence
 
 
 class LevelAsset(asset.BaseAsset):
-    """Classe pour la création d'assets de type Level dans Unreal Engine 4.
+    """Class for creating Level assets.
 
     Args:
-        asset_path (str): Le chemin où créer l'asset.
-        level_sequences (list): La liste des level sequences à ajouter au Level.
+        asset_path (str): The path where to create the asset.
+        level_sequences (list): The list of level sequences to add to the Level.
 
     Attributes:
-        asset_path (str): Le chemin où créer l'asset.
-        level_sequences (list): La liste des level sequences à ajouter au Level.
+        asset_path (str): The path where to create the asset.
+        level_sequences (dict): A dictionary where each key is the name of a level sequence,
+                                and each value is the path where to find/create the asset.
     """
 
-    def __init__(self, asset_path, asset_name, level_sequences):
+    def __init__(
+        self, asset_path: str, asset_name: str, level_sequences: Dict[str, str]
+    ):
         super(LevelAsset, self).__init__(asset_path, asset_name, unreal.World)
         self.level_sequences = level_sequences
 
-    def _get_creation_options(self):
-        """Définit les options de création de l'asset Level.
+    def attribute_name_template(self) -> str:
+        """Returns the attribute name template for the Level.
 
         Returns:
-            obj: Les options de création de l'asset Level.
+            str: The attribute name template for the Level.
+        """
+        return "MAP_{asset_name}"
+
+    def _get_creation_options(self) -> unreal.WorldFactory:
+        """Defines the creation options for the Level asset.
+
+        Returns:
+            obj: The creation options for the Level asset.
         """
         return unreal.WorldFactory()
 
-    def _create_level_sequence(self, sequence_path, sequence_name):
-        """Crée un nouvel asset de type LevelSequence.
+    def _create_level_sequence(
+        self, sequence_path: str, sequence_name: str
+    ) -> unreal.LevelSequence:
+        """Creates a new LevelSequence asset.
 
         Args:
-            sequence_path (str): Le chemin où trouver/créer l'asset.
-            sequence_name (str): Le nom du nouvel asset LevelSequence.
+            sequence_path (str): The path where to find/create the asset.
+            sequence_name (str): The name of the new LevelSequence asset.
 
         Returns:
-            obj: L'objet asset LevelSequence créé.
+            obj: The created LevelSequence asset object.
         """
-        raise NotImplementedError(
-            "La méthode _create_level_sequence doit être définie."
-        )
+        lvl_seq = levelSequence.LevelSequenceAsset(sequence_path, sequence_name)
+        return lvl_seq.create_asset()
 
-    def create_asset(self):
-        """Crée l'asset Level.
+    def create_asset(self) -> unreal.Level:
+        """Creates the Level asset.
 
         Returns:
-            obj: L'objet asset Level créé.
+            obj: The created Level asset object.
         """
         level: unreal = super(LevelAsset, self).create_asset()
         if level is None:
@@ -62,12 +75,14 @@ class LevelAsset(asset.BaseAsset):
             )
 
         # Ajoute les level sequences à la liste des acteurs possessables du Level
-        for sequence_name in self.level_sequences:
+        for sequence_name, sequence_path in self.level_sequences.items():
             sequence_asset = unreal.EditorAssetLibrary.find_asset_data(
                 cinematics_path + "/" + sequence_name
             )
             if sequence_asset is None:
-                sequence_asset = self._create_level_sequence(sequence_name)
+                sequence_asset = self._create_level_sequence(
+                    sequence_path, sequence_name
+                )
             sequence_actor = unreal.EditorLevelLibrary.spawn_actor_from_object(
                 sequence_asset, unreal.Vector(0, 0, 0)
             )
