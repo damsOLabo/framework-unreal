@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "ms-pythin.isort",
+        "elagil.pre-commit-helper",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+    ]
+}
