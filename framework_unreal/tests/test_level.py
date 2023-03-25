@@ -1,20 +1,22 @@
 import unittest
+
 import unreal
-from ..core import LevelAsset
+
+from ..core import level
 
 
 class TestLevelAsset(unittest.TestCase):
     def setUp(self):
         self.asset_path = "/Game/TestLevel"
         self.level_sequences = ["Sequence1", "Sequence2"]
-        self.level_asset = LevelAsset(self.asset_path, self.level_sequences)
+        self.level_asset = level.LevelAsset(self.asset_path, self.level_sequences)
 
     def test_asset_name(self):
         self.assertEqual(self.level_asset._get_asset_name(), "NewLevel")
 
     def test_creation_options(self):
         options = self.level_asset._get_creation_options()
-        self.assertIsInstance(options, unreal.EditorAssetCreationOptions)
+        self.assertIsInstance(options, unreal.WorldFactory())
         self.assertTrue(options.create_new)
         self.assertFalse(options.save_asset)
 

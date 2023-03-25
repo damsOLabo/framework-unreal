@@ -1,4 +1,5 @@
 import unreal
+
 from . import asset
 
 
@@ -14,17 +15,9 @@ class LevelAsset(asset.BaseAsset):
         level_sequences (list): La liste des level sequences à ajouter au Level.
     """
 
-    def __init__(self, asset_path, level_sequences):
-        super(LevelAsset, self).__init__(asset_path, "Level")
+    def __init__(self, asset_path, asset_name, level_sequences):
+        super(LevelAsset, self).__init__(asset_path, asset_name, unreal.World)
         self.level_sequences = level_sequences
-
-    def _get_asset_name(self):
-        """Définit le nom de l'asset Level.
-
-        Returns:
-            str: Le nom de l'asset Level.
-        """
-        return "NewLevel"
 
     def _get_creation_options(self):
         """Définit les options de création de l'asset Level.
@@ -32,10 +25,7 @@ class LevelAsset(asset.BaseAsset):
         Returns:
             obj: Les options de création de l'asset Level.
         """
-        options = unreal.EditorAssetCreationOptions()
-        options.set_create_new(True)
-        options.set_save_asset(False)
-        return options
+        return unreal.WorldFactory()
 
     def _create_level_sequence(self, sequence_path, sequence_name):
         """Crée un nouvel asset de type LevelSequence.
@@ -47,28 +37,9 @@ class LevelAsset(asset.BaseAsset):
         Returns:
             obj: L'objet asset LevelSequence créé.
         """
-        # Get asset tools
-        asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
-
-        level_sequence = unreal.AssetTools.create_asset(
-            asset_tools,
-            asset_name=sequence_name,
-            package_path=sequence_path,
-            asset_class=unreal.LevelSequence,
-            factory=unreal.LevelSequenceFactoryNew(),
+        raise NotImplementedError(
+            "La méthode _create_level_sequence doit être définie."
         )
-        # Create a frame rate object, change the numerator to the desired fps number
-        frame_rate = unreal.FrameRate(numerator=60, denominator=1)
-        # Set the display rate
-        level_sequence.set_display_rate(frame_rate)
-
-        unreal.EditorAssetLibrary.save_asset(level_sequence)
-        unreal.log(
-            "L'asset LevelSequence {} a été créé dans le chemin {}.".format(
-                sequence_name, sequence_path
-            )
-        )
-        return level_sequence
 
     def create_asset(self):
         """Crée l'asset Level.
