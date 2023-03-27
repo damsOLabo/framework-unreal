@@ -129,3 +129,51 @@ class BaseAsset:
         """
         unreal.EditorAssetLibrary.save_asset(asset.get_path_name())
         unreal.log("The asset {} has been saved.".format(self.asset_name))
+
+
+class TextureImporter:
+    def __init__(self, source_path: str, destination_path: str) -> None:
+        """
+        Initializes a new TextureImporter instance.
+
+        :param source_path: The path of the source texture file.
+        :param destination_path: The path of the destination texture asset in Unreal Engine.
+        """
+        self.source_path = source_path
+        self.destination_path = destination_path
+
+    def import_texture(self) -> Optional[unreal.Texture]:
+        """
+        Imports the texture at the source path to Unreal Engine.
+
+        :returns: The imported texture asset, or None if import failed.
+        """
+        # Create a TextureImportOptions object to configure the import
+        import_options = unreal.TextureImportOptions()
+        import_options.texture_group = unreal.TextureGroup.TEXTUREGROUP_PIXEL2D
+        import_options.sRGB = False
+        import_options.convert_to_grayscale = False
+        import_options.alpha_source = unreal.TextureAlphaSource.TAS_NONE
+        import_options.texture_compression_settings = (
+            unreal.TextureCompressionSettings.TC_BC7
+        )
+        import_options.material_import_name = ""
+        import_options.bilinear_filter = True
+        import_options.mipmap_generation = (
+            unreal.TextureMipGenSettings.TMGS_GENERATE_MIPS
+        )
+        import_options.alpha_coverage_threshold = 0.0
+        import_options.decompress_on_load = False
+        import_options.adjust_brightness = 0.0
+        import_options.adjust_saturation = 1.0
+        import_options.import_as_linear = True
+        import_options.aces_color_space = True
+
+        # Import the texture
+        asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
+        imported_texture = asset_tools.import_asset(
+            self.destination_path, self.source_path, import_options
+        )
+        if imported_texture is None:
+            print("Failed to import texture:", self.source_path)
+        return imported_texture
