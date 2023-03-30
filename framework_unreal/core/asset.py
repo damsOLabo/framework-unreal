@@ -1,4 +1,4 @@
-from typing import Type, Optional, Union
+from typing import Type, Optional, Union, List, Dict
 import unreal
 import re
 
@@ -149,75 +149,176 @@ class FBXImporter:
         self.asset_tools: unreal.AssetTools = unreal.AssetToolsHelpers.get_asset_tools()
         self.asset_reg = unreal.AssetRegistryHelpers.get_asset_registry()
 
-    def import_fbx(
+    def _set_task(
+        self,
+        fbx_path: str,
+        destination_path: str,
+        asset_name: str,
+        replace_existing: bool = True,
+    ) -> unreal.AssetImportTask:
+        """Create an import task for an FBX file.
+
+        Args:
+            fbx_path (str): The path to the FBX file to be imported.
+            destination_path (str): The path in UE4 where the asset should be imported to.
+            asset_name (str): The name to give the imported asset
+            replace_existing (bool): Whether to replace an existing asset with the same name.
+
+        Returns:
+            unreal.AssetImportTask: The import task.
+        """  # noqa
+        task: unreal.AssetImportTask = unreal.AssetImportTask()
+        task.filename = fbx_path
+        task.destination_path = destination_path
+        task.destination_name = asset_name
+        task.replace_existing = replace_existing
+        return task
+
+    def set_fbx(
         self,
         fbx_path: str,
         destination_path: str,
         asset_name: str,
         import_animation: bool = False,
-        animation_sequence_name: Optional[str] = None,
         import_materials: bool = True,
         import_textures: bool = True,
         import_mesh: bool = True,
         replace_existing: bool = True,
-    ) -> Union[unreal.SkeletalMesh, unreal.StaticMesh]:
+    ) -> unreal.AssetImportTask:
         """Import an FBX file into UE.
 
         Args:
-        fbx_path (str): The path to the FBX file to be imported.
-        destination_path (str): The path in UE4 where the asset should be imported to.
-        asset_name (str): The name to give the imported asset.
-        import_animation (bool, optional): Whether to import any animations associated with the FBX file.
-        animation_sequence_name (str, optional): The name to give any imported animation sequences.
-        import_materials (bool, optional): Whether to import materials from the FBX file.
-        import_textures (bool, optional): Whether to import textures from the FBX file.
-        import_mesh (bool, optional): Whether to import the mesh from the FBX file.
-        replace_existing (bool, optional): Whether to replace an existing asset with the same name as the imported asset.
+            fbx_path (str): The path to the FBX file to be imported.
+            destination_path (str): The path in UE4 where the asset should be imported to.
+            asset_name (str): The name to give the imported asset.
+            import_animation (bool, optional): Whether to import any animations associated with the FBX file.
+            import_materials (bool, optional): Whether to import materials from the FBX file.
+            import_textures (bool, optional): Whether to import textures from the FBX file.
+            import_mesh (bool, optional): Whether to import the mesh from the FBX file.
+            replace_existing (bool, optional): Whether to replace an existing asset with the same name as the imported asset.
 
         Returns:
-        Union[unreal.skeletalMesh, unreal.staticMesh]: The imported asset.
+            unreal.AssetImportTask: The imported asset.
         """  # noqa
-        import_task: unreal.AssetImportTask = unreal.AssetImportTask()
-        import_task.filename = fbx_path
-        import_task.destination_path = destination_path
-        import_task.destination_name = asset_name
-        import_task.replace_existing = replace_existing
-
+        task: unreal.AssetImportTask = self._set_task(
+            fbx_path, destination_path, asset_name, replace_existing
+        )
         options: unreal.FbxImportUI = unreal.FbxImportUI()
         options.import_mesh = import_mesh
         options.import_materials = import_materials
         options.import_textures = import_textures
         options.import_animations = import_animation
 
-        import_task.options = options
+        task.options = options
+        return task
 
-        self.asset_tools.import_asset_tasks([import_task])
+    def import_fbx(
+        self,
+        inputs: List[Dict],
+        import_animation: bool = False,
+        import_materials: bool = True,
+        import_textures: bool = True,
+        import_mesh: bool = True,
+        replace_existing: bool = True,
+    ) -> None:
+        """Import an FBX file into unreal.
 
-        asset_path: str = destination_path + asset_name
-        asset: unreal.Object = unreal.load_asset(asset_path)
+        Args:
+            inputs (List[Dict]): [
+                    {
+                        'file_path': 'path/to/fbx/file.fbx',
+                        'destination_path': '/Game/Content/',
+                        'asset_name': 'name_of_asset'
+                    }
+                ], datas to process.
+            import_animation (bool, optional): Whether to import any animations
+                                            associated with the FBX file.
+            import_materials (bool, optional): Whether to import materials from the FBX file.
+            import_textures (bool, optional): Whether to import textures from the FBX file.
+            import_mesh (bool, optional): Whether to import the mesh from the FBX file.
+            replace_existing (bool, optional): Whether to replace an existing asset with the same name as the imported asset.
 
-        if isinstance(asset, unreal.SkeletalMesh):
-            asset.rename("SKM_" + asset_name)
-            # Rename physics asset if it exists
-            physics_asset: unreal.PhysicsAsset = asset.get_editor_property(
-                "physics_asset"
+        Returns:
+            unreal.FbxImportUI: The imported asset.
+        """  # noqa
+        tasks = []
+        for asset_input in inputs:
+            task = self.set_fbx(
+                asset_input["file_path"],
+                asset_input["destination_path"],
+                asset_input["asset_name"],
+                import_animation=import_animation,
+                import_materials=import_materials,
+                import_textures=import_textures,
+                import_mesh=import_mesh,
+                replace_existing=replace_existing,
             )
-            if physics_asset:
-                physics_asset.rename("PA_" + asset_name)
-            # Rename skeleton asset if it exists
-            skeleton: unreal.Skeleton = asset.get_editor_property("skeleton")
-            if skeleton:
-                skeleton.rename("SKL_" + asset_name)
-        elif isinstance(asset, unreal.StaticMesh):
-            asset.rename("SM_" + asset_name)
+            tasks.append(task)
+        self.asset_tools.import_asset_tasks(tasks)
+        self.rename_assets(inputs, import_animation)
 
-        if import_animation and animation_sequence_name:
-            assets_in_package = self.asset_reg.get_assets_by_path(destination_path)
-            for asset_in_package in assets_in_package:
-                if asset_in_package.asset_class == unreal.AnimationAsset:
-                    name = asset_in_package.asset_name()
-                    if name.startswith("AS_"):
-                        continue
-                    asset_in_package.rename("AS_" + asset_name + name)
+    def rename_assets(self, inputs: List[Dict], import_animation: bool = False) -> None:
+        """Rename asset from inputs.
 
-        return asset
+        Args:
+            inputs (List[Dict]): [
+                    {
+                        'file_path': 'path/to/fbx/file.fbx',
+                        'destination_path': '/Game/Content/',
+                        'asset_name': 'name_of_asset'
+                    }
+                ], datas to process.
+            import_animation (bool, optional): Whether to import any animations
+                                            associated with the FBX file.
+        """
+        assets_to_rename = []
+        for asset_input in inputs:
+            destination_path = asset_input["destination_path"]
+            asset_name = asset_input["asset_name"]
+
+            asset_path: str = destination_path + "/" + asset_name
+            asset: unreal.Object = unreal.load_asset(asset_path)
+
+            if isinstance(asset, unreal.SkeletalMesh):
+                skeletal_rename = unreal.AssetRenameData(
+                    asset, destination_path, "SKM_" + asset_name
+                )
+                assets_to_rename.append(skeletal_rename)
+
+                # Rename physics asset if it exists
+                physics_asset: unreal.PhysicsAsset = asset.get_editor_property(
+                    "physics_asset"
+                )
+                if physics_asset:
+                    physics_rename = unreal.AssetRenameData(
+                        physics_asset, destination_path, "PA_" + asset_name
+                    )
+                    assets_to_rename.append(physics_rename)
+
+                # Rename skeleton asset if it exists
+                skeleton: unreal.Skeleton = asset.get_editor_property("skeleton")
+                if skeleton:
+                    skeleton_rename = unreal.AssetRenameData(
+                        skeleton, destination_path, "SKL_" + asset_name
+                    )
+                    assets_to_rename.append(skeleton_rename)
+
+            elif isinstance(asset, unreal.StaticMesh):
+                assets_to_rename.append(asset)
+
+            if import_animation:
+                assets_in_package = self.asset_reg.get_assets_by_path(destination_path)
+                for asset_in_package in assets_in_package:
+                    if asset_in_package.asset_class == unreal.AnimationAsset:
+                        name = asset_in_package.asset_name()
+                        if name.startswith("AS_"):
+                            continue
+                        animseq_rename = unreal.AssetRenameData(
+                            asset_in_package,
+                            destination_path,
+                            "AS_" + asset_name + name,
+                        )
+
+                        assets_to_rename.append(animseq_rename)
+
+        self.asset_tools.rename_assets(assets_to_rename)
